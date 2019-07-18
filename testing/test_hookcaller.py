@@ -1,17 +1,18 @@
-import pytest
+from typing import Callable, List, Sequence
 
-from pluggy import HookimplMarker, HookspecMarker, PluginValidationError
-from pluggy.hooks import HookImpl
+import pytest
+from pluggy import HookimplMarker, HookspecMarker, PluginManager, PluginValidationError
+from pluggy.hooks import HookImpl, _HookCaller
 
 hookspec = HookspecMarker("example")
 hookimpl = HookimplMarker("example")
 
 
 @pytest.fixture
-def hc(pm):
+def hc(pm: PluginManager) -> _HookCaller:
     class Hooks:
         @hookspec
-        def he_method1(self, arg):
+        def he_method1(self, arg: object) -> None:
             pass
 
     pm.add_hookspecs(Hooks)
@@ -19,8 +20,10 @@ def hc(pm):
 
 
 @pytest.fixture
-def addmeth(hc):
-    def addmeth(tryfirst=False, trylast=False, hookwrapper=False):
+def addmeth(hc: _HookCaller):
+    def addmeth(
+        tryfirst: bool = False, trylast: bool = False, hookwrapper: bool = False
+    ):
         def wrap(func):
             hookimpl(tryfirst=tryfirst, trylast=trylast, hookwrapper=hookwrapper)(func)
             hc._add_hookimpl(HookImpl(None, "<temp>", func, func.example_impl))
@@ -31,57 +34,57 @@ def addmeth(hc):
     return addmeth
 
 
-def funcs(hookmethods):
+def funcs(hookmethods: Sequence[HookImpl]) -> List[Callable[..., object]]:
     return [hookmethod.function for hookmethod in hookmethods]
 
 
-def test_adding_nonwrappers(hc, addmeth):
+def test_adding_nonwrappers(hc: _HookCaller, addmeth) -> None:
     @addmeth()
-    def he_method1():
+    def he_method1() -> None:
         pass
 
     @addmeth()
-    def he_method2():
+    def he_method2() -> None:
         pass
 
     @addmeth()
-    def he_method3():
+    def he_method3() -> None:
         pass
 
     assert funcs(hc._nonwrappers) == [he_method1, he_method2, he_method3]
 
 
-def test_adding_nonwrappers_trylast(hc, addmeth):
+def test_adding_nonwrappers_trylast(hc: _HookCaller, addmeth) -> None:
     @addmeth()
-    def he_method1_middle():
+    def he_method1_middle() -> None:
         pass
 
     @addmeth(trylast=True)
-    def he_method1():
+    def he_method1() -> None:
         pass
 
     @addmeth()
-    def he_method1_b():
+    def he_method1_b() -> None:
         pass
 
     assert funcs(hc._nonwrappers) == [he_method1, he_method1_middle, he_method1_b]
 
 
-def test_adding_nonwrappers_trylast3(hc, addmeth):
+def test_adding_nonwrappers_trylast3(hc: _HookCaller, addmeth) -> None:
     @addmeth()
-    def he_method1_a():
+    def he_method1_a() -> None:
         pass
 
     @addmeth(trylast=True)
-    def he_method1_b():
+    def he_method1_b() -> None:
         pass
 
     @addmeth()
-    def he_method1_c():
+    def he_method1_c() -> None:
         pass
 
     @addmeth(trylast=True)
-    def he_method1_d():
+    def he_method1_d() -> None:
         pass
 
     assert funcs(hc._nonwrappers) == [
@@ -92,93 +95,96 @@ def test_adding_nonwrappers_trylast3(hc, addmeth):
     ]
 
 
-def test_adding_nonwrappers_trylast2(hc, addmeth):
+def test_adding_nonwrappers_trylast2(hc: _HookCaller, addmeth) -> None:
     @addmeth()
-    def he_method1_middle():
+    def he_method1_middle() -> None:
         pass
 
     @addmeth()
-    def he_method1_b():
+    def he_method1_b() -> None:
         pass
 
     @addmeth(trylast=True)
-    def he_method1():
+    def he_method1() -> None:
         pass
 
     assert funcs(hc._nonwrappers) == [he_method1, he_method1_middle, he_method1_b]
 
 
-def test_adding_nonwrappers_tryfirst(hc, addmeth):
+def test_adding_nonwrappers_tryfirst(hc: _HookCaller, addmeth) -> None:
     @addmeth(tryfirst=True)
-    def he_method1():
+    def he_method1() -> None:
         pass
 
     @addmeth()
-    def he_method1_middle():
+    def he_method1_middle() -> None:
         pass
 
     @addmeth()
-    def he_method1_b():
+    def he_method1_b() -> None:
         pass
 
     assert funcs(hc._nonwrappers) == [he_method1_middle, he_method1_b, he_method1]
 
 
-def test_adding_wrappers_ordering(hc, addmeth):
+def test_adding_wrappers_ordering(hc: _HookCaller, addmeth) -> None:
     @addmeth(hookwrapper=True)
-    def he_method1():
+    def he_method1() -> None:
         pass
 
     @addmeth()
-    def he_method1_middle():
+    def he_method1_middle() -> None:
         pass
 
     @addmeth(hookwrapper=True)
-    def he_method3():
+    def he_method3() -> None:
         pass
 
     assert funcs(hc._nonwrappers) == [he_method1_middle]
     assert funcs(hc._wrappers) == [he_method1, he_method3]
 
 
-def test_adding_wrappers_ordering_tryfirst(hc, addmeth):
+def test_adding_wrappers_ordering_tryfirst(hc: _HookCaller, addmeth) -> None:
     @addmeth(hookwrapper=True, tryfirst=True)
-    def he_method1():
+    def he_method1() -> None:
         pass
 
     @addmeth(hookwrapper=True)
-    def he_method2():
+    def he_method2() -> None:
         pass
 
     assert hc._nonwrappers == []
     assert funcs(hc._wrappers) == [he_method2, he_method1]
 
 
-def test_hookspec(pm):
+def test_hookspec(pm: PluginManager) -> None:
     class HookSpec:
         @hookspec()
-        def he_myhook1(arg1):
+        def he_myhook1(arg1) -> None:
             pass
 
         @hookspec(firstresult=True)
-        def he_myhook2(arg1):
+        def he_myhook2(arg1) -> None:
             pass
 
         @hookspec(firstresult=False)
-        def he_myhook3(arg1):
+        def he_myhook3(arg1) -> None:
             pass
 
     pm.add_hookspecs(HookSpec)
+    assert pm.hook.he_myhook1.spec is not None
     assert not pm.hook.he_myhook1.spec.opts["firstresult"]
+    assert pm.hook.he_myhook2.spec is not None
     assert pm.hook.he_myhook2.spec.opts["firstresult"]
+    assert pm.hook.he_myhook3.spec is not None
     assert not pm.hook.he_myhook3.spec.opts["firstresult"]
 
 
 @pytest.mark.parametrize("name", ["hookwrapper", "optionalhook", "tryfirst", "trylast"])
 @pytest.mark.parametrize("val", [True, False])
-def test_hookimpl(name, val):
+def test_hookimpl(name: str, val) -> None:
     @hookimpl(**{name: val})
-    def he_myhook1(arg1):
+    def he_myhook1(arg1) -> None:
         pass
 
     if val:
@@ -187,13 +193,13 @@ def test_hookimpl(name, val):
         assert not hasattr(he_myhook1, name)
 
 
-def test_hookrelay_registry(pm):
+def test_hookrelay_registry(pm: PluginManager) -> None:
     """Verify hook caller instances are registered by name onto the relay
     and can be likewise unregistered."""
 
     class Api:
         @hookspec
-        def hello(self, arg):
+        def hello(self, arg: object) -> None:
             "api hook 1"
 
     pm.add_hookspecs(Api)
@@ -215,13 +221,13 @@ def test_hookrelay_registry(pm):
     assert hook.hello(arg=3) == []
 
 
-def test_hookrelay_registration_by_specname(pm):
+def test_hookrelay_registration_by_specname(pm: PluginManager) -> None:
     """Verify hook caller instances may also be registered by specifying a
     specname option to the hookimpl"""
 
     class Api:
         @hookspec
-        def hello(self, arg):
+        def hello(self, arg: object) -> None:
             "api hook 1"
 
     pm.add_hookspecs(Api)
@@ -231,7 +237,7 @@ def test_hookrelay_registration_by_specname(pm):
 
     class Plugin:
         @hookimpl(specname="hello")
-        def foo(self, arg):
+        def foo(self, arg: int) -> int:
             return arg + 1
 
     plugin = Plugin()
@@ -240,13 +246,13 @@ def test_hookrelay_registration_by_specname(pm):
     assert out == [4]
 
 
-def test_hookrelay_registration_by_specname_raises(pm):
+def test_hookrelay_registration_by_specname_raises(pm: PluginManager) -> None:
     """Verify using specname still raises the types of errors during registration as it
     would have without using specname."""
 
     class Api:
         @hookspec
-        def hello(self, arg):
+        def hello(self, arg: object) -> None:
             "api hook 1"
 
     pm.add_hookspecs(Api)
@@ -254,7 +260,7 @@ def test_hookrelay_registration_by_specname_raises(pm):
     # make sure a bad signature still raises an error when using specname
     class Plugin:
         @hookimpl(specname="hello")
-        def foo(self, arg, too, many, args):
+        def foo(self, arg: int, too, many, args) -> int:
             return arg + 1
 
     with pytest.raises(PluginValidationError):
@@ -264,7 +270,7 @@ def test_hookrelay_registration_by_specname_raises(pm):
     # corresponding spec.  EVEN if the function name matches one.
     class Plugin2:
         @hookimpl(specname="bar")
-        def hello(self, arg):
+        def hello(self, arg: int) -> int:
             return arg + 1
 
     pm.register(Plugin2())

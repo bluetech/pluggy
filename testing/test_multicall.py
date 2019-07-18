@@ -1,23 +1,32 @@
+from typing import Callable, Mapping, List, Sequence, Union
+
 import pytest
 from pluggy import HookCallError, HookspecMarker, HookimplMarker
 from pluggy.hooks import HookImpl
 from pluggy.callers import _multicall
+
+if False:  # TYPE_CHECKING
+    from typing import Type
 
 
 hookspec = HookspecMarker("example")
 hookimpl = HookimplMarker("example")
 
 
-def MC(methods, kwargs, firstresult=False):
+def MC(
+    methods: Sequence[Callable[..., object]],
+    kwargs: Mapping[str, object],
+    firstresult: bool = False,
+) -> Union[object, List[object]]:
     caller = _multicall
     hookfuncs = []
     for method in methods:
-        f = HookImpl(None, "<temp>", method, method.example_impl)
+        f = HookImpl(None, "<temp>", method, method.example_impl)  # type: ignore[attr-defined]
         hookfuncs.append(f)
     return caller("foo", hookfuncs, kwargs, firstresult)
 
 
-def test_keyword_args():
+def test_keyword_args() -> None:
     @hookimpl
     def f(x):
         return x + 1
@@ -31,7 +40,7 @@ def test_keyword_args():
     assert reslist == [24 + 23, 24]
 
 
-def test_keyword_args_with_defaultargs():
+def test_keyword_args_with_defaultargs() -> None:
     @hookimpl
     def f(x, z=1):
         return x + z
@@ -40,7 +49,7 @@ def test_keyword_args_with_defaultargs():
     assert reslist == [24]
 
 
-def test_tags_call_error():
+def test_tags_call_error() -> None:
     @hookimpl
     def f(x):
         return x
@@ -49,7 +58,7 @@ def test_tags_call_error():
         MC([f], {})
 
 
-def test_call_none_is_no_result():
+def test_call_none_is_no_result() -> None:
     @hookimpl
     def m1():
         return 1
@@ -60,11 +69,11 @@ def test_call_none_is_no_result():
 
     res = MC([m1, m2], {}, firstresult=True)
     assert res == 1
-    res = MC([m1, m2], {}, {})
+    res = MC([m1, m2], {}, firstresult=False)
     assert res == [1]
 
 
-def test_hookwrapper():
+def test_hookwrapper() -> None:
     out = []
 
     @hookimpl(hookwrapper=True)
@@ -87,7 +96,7 @@ def test_hookwrapper():
     assert out == ["m1 init", "m2", "m1 finish"]
 
 
-def test_hookwrapper_order():
+def test_hookwrapper_order() -> None:
     out = []
 
     @hookimpl(hookwrapper=True)
@@ -107,7 +116,7 @@ def test_hookwrapper_order():
     assert out == ["m1 init", "m2 init", "m2 finish", "m1 finish"]
 
 
-def test_hookwrapper_not_yield():
+def test_hookwrapper_not_yield() -> None:
     @hookimpl(hookwrapper=True)
     def m1():
         pass
@@ -116,7 +125,7 @@ def test_hookwrapper_not_yield():
         MC([m1], {})
 
 
-def test_hookwrapper_too_many_yield():
+def test_hookwrapper_too_many_yield() -> None:
     @hookimpl(hookwrapper=True)
     def m1():
         yield 1
@@ -129,7 +138,7 @@ def test_hookwrapper_too_many_yield():
 
 
 @pytest.mark.parametrize("exc", [ValueError, SystemExit])
-def test_hookwrapper_exception(exc):
+def test_hookwrapper_exception(exc: "Type[BaseException]") -> None:
     out = []
 
     @hookimpl(hookwrapper=True)

@@ -253,20 +253,8 @@ class _HookCaller:
     def __repr__(self):
         return "<_HookCaller %r>" % (self.name,)
 
-    def __call__(self, *args, **kwargs):
-        if args:
-            raise TypeError("hook calling supports only keyword arguments")
-        assert not self.is_historic()
-
-        if self.spec and self.spec.argnames:
-            notincall = set(self.spec.argnames) - set(kwargs.keys())
-            if notincall:
-                warnings.warn(
-                    "Argument(s) {} which are declared in the hookspec "
-                    "can not be found in this hook call".format(tuple(notincall)),
-                    stacklevel=2,
-                )
-        return self._hookexec(self, self.get_hookimpls(), kwargs)
+    def __call__(self, **kwargs):
+        return self._hookexec(self, self._nonwrappers + self._wrappers, kwargs)
 
     def call_historic(self, result_callback=None, kwargs=None):
         """Call the hook with given ``kwargs`` for all registered plugins and

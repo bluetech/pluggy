@@ -71,16 +71,9 @@ class PluginManager:
         self._plugin_distinfo = []
         self.trace = _tracing.TagTracer().get("pluginmanage")
         self.hook = _HookRelay()
-        self._inner_hookexec = lambda hook, methods, kwargs: _multicall(
-            methods,
-            kwargs,
-            firstresult=hook.spec.opts.get("firstresult") if hook.spec else False,
-        )
-
-    def _hookexec(self, hook, methods, kwargs):
-        # called from all hookcaller instances.
-        # enable_tracing will set its own wrapping function at self._inner_hookexec
-        return self._inner_hookexec(hook, methods, kwargs)
+        # Called from all hookcaller instances.
+        # enable_tracing will set its own wrapping function at self._hookexec.
+        self._hookexec = _multicall
 
     def register(self, plugin, name=None):
         """ Register a plugin and return its canonical name or ``None`` if the name

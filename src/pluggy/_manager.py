@@ -1,6 +1,7 @@
 import inspect
 import sys
 import warnings
+import collections.abc
 
 from . import _tracing
 from ._callers import _Result, _multicall
@@ -353,7 +354,11 @@ class PluginManager:
         which manages calls to all registered plugins except the
         ones from remove_plugins."""
         orig = getattr(self.hook, name)
-        plugins_to_remove = [plug for plug in remove_plugins if hasattr(plug, name)]
+        # Optimization: if already a set, just use it directly.
+        if isinstance(remove_plugins, collections.abc.Set):
+            plugins_to_remove = remove_plugins
+        else:
+            plugins_to_remove = set(remove_plugins)
         if plugins_to_remove:
             hc = _HookCaller(
                 orig.name, orig._hookexec, orig.spec.namespace, orig.spec.opts

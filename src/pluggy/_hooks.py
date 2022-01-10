@@ -302,6 +302,60 @@ class _HookCaller:
                     result_callback(res[0])
 
 
+class _SubsetHookCaller:
+    __slots__ = ("_orig", "_remove_plugins")
+
+    def __init__(self, orig, remove_plugins):
+        self._orig = orig
+        self._remove_plugins = remove_plugins
+
+    @property
+    def name(self):
+        return self._orig.name
+
+    @property
+    def spec(self):
+        return self._orig.spec
+
+    def _hookexec(self, hook_name, hook_impls, caller_kwargs, firstresult):
+        hook_impls = [
+            impl for impl in hook_impls if impl.plugin not in self._remove_plugins
+        ]
+        return self._orig._hookexec(hook_name, hook_impls, caller_kwargs, firstresult)
+
+    def has_spec(self):
+        return self._orig.has_spec()
+
+    def set_specification(self, specmodule_or_class, spec_opts):
+        return self._orig.set_specification(specmodule_or_class, spec_opts)
+
+    def is_historic(self):
+        return self._orig.is_historic()
+
+    def get_hookimpls(self):
+        # Order is important for _hookexec
+        return [
+            impl
+            for impl in self._orig.get_hookimpls()
+            if impl.plugin not in self._remove_plugins
+        ]
+
+    def __repr__(self):
+        return f"<_SubsetHookCaller {self._orig.name!r}>"
+
+    def __call__(self, *args, **kwargs):
+        return self._orig(*args, **kwargs)
+
+    def call_historic(self, result_callback=None, kwargs=None):
+        return self._orig.call_historic(result_callback, kwargs)
+
+    def call_extra(self, methods, kwargs):
+        return self._orig.call_extra(methods, kwargs)
+
+    def _maybe_apply_history(self, method):
+        return self._orig._maybe_apply_history(method)
+
+
 class HookImpl:
     def __init__(self, plugin, plugin_name, function, hook_impl_opts):
         self.function = function

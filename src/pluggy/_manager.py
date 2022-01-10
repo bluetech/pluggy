@@ -5,7 +5,13 @@ import collections.abc
 
 from . import _tracing
 from ._callers import _Result, _multicall
-from ._hooks import HookImpl, _HookRelay, _HookCaller, normalize_hookimpl_opts
+from ._hooks import (
+    HookImpl,
+    _HookRelay,
+    _HookCaller,
+    _SubsetHookCaller,
+    normalize_hookimpl_opts,
+)
 
 if sys.version_info >= (3, 8):
     from importlib import metadata as importlib_metadata
@@ -360,17 +366,7 @@ class PluginManager:
         else:
             plugins_to_remove = set(remove_plugins)
         if plugins_to_remove:
-            hc = _HookCaller(
-                orig.name, orig._hookexec, orig.spec.namespace, orig.spec.opts
-            )
-            for hookimpl in orig.get_hookimpls():
-                plugin = hookimpl.plugin
-                if plugin not in plugins_to_remove:
-                    hc._add_hookimpl(hookimpl)
-                    # we also keep track of this hook caller so it
-                    # gets properly removed on plugin unregistration
-                    self._plugin2hookcallers.setdefault(plugin, []).append(hc)
-            return hc
+            return _SubsetHookCaller(orig, plugins_to_remove)
         return orig
 
 

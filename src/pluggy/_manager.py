@@ -25,6 +25,7 @@ from ._hooks import (
     HookImpl,
     HookSpec,
     _HookCaller,
+    _SubsetHookCaller,
     _HookImplFunction,
     _HookRelay,
     _Namespace,
@@ -428,20 +429,9 @@ class PluginManager:
         which manages calls to all registered plugins except the
         ones from remove_plugins."""
         orig: _HookCaller = getattr(self.hook, name)
-        plugins_to_remove = [plug for plug in remove_plugins if hasattr(plug, name)]
+        plugins_to_remove = set(plug for plug in remove_plugins if hasattr(plug, name))
         if plugins_to_remove:
-            assert orig.spec is not None
-            hc = _HookCaller(
-                orig.name, orig._hookexec, orig.spec.namespace, orig.spec.opts
-            )
-            for hookimpl in orig.get_hookimpls():
-                plugin = hookimpl.plugin
-                if plugin not in plugins_to_remove:
-                    hc._add_hookimpl(hookimpl)
-                    # we also keep track of this hook caller so it
-                    # gets properly removed on plugin unregistration
-                    self._plugin2hookcallers.setdefault(plugin, []).append(hc)
-            return hc
+            return _SubsetHookCaller(orig, plugins_to_remove)
         return orig
 
 

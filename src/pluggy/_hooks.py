@@ -6,6 +6,7 @@ import sys
 import warnings
 from types import ModuleType
 from typing import (
+    AbstractSet,
     Any,
     Callable,
     Generator,
@@ -451,6 +452,43 @@ class _HookCaller:
                     # XXX: remember firstresult isn't compat with historic
                     assert isinstance(res, list)
                     result_callback(res[0])
+
+
+class _SubsetHookCaller(_HookCaller):
+    __slots__ = (
+        "_orig",
+        "_remove_plugins",
+        "name",
+        "_hookexec",
+        "_wrappers",
+        "_nonwrappers",
+    )
+
+    def __init__(self, orig: _HookCaller, remove_plugins: AbstractSet[_Plugin]) -> None:
+        self._orig = orig
+        self._remove_plugins = remove_plugins
+        self.name = orig.name  # type: ignore[misc]
+        self._hookexec = orig._hookexec  # type: ignore[misc]
+        self._wrappers = orig._wrappers  # type: ignore[misc]
+        self._nonwrappers = orig._nonwrappers  # type: ignore[misc]
+
+    @property
+    def _call_history(self) -> Optional[_CallHistory]:  # type: ignore[override]
+        return self._orig._call_history
+
+    @property
+    def spec(self) -> Optional["HookSpec"]:  # type: ignore[override]
+        return self._orig.spec
+
+    def get_hookimpls(self) -> List["HookImpl"]:
+        return [
+            impl
+            for impl in self._nonwrappers + self._wrappers
+            if impl.plugin not in self._remove_plugins
+        ]
+
+    def __repr__(self) -> str:
+        return f"<_SubsetHookCaller {self.name!r}>"
 
 
 class HookImpl:

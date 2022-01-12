@@ -433,66 +433,20 @@ class _SubsetHookCaller(_HookCaller):
         self._orig = orig
         self._remove_plugins = remove_plugins
 
-    @property
-    def name(self) -> str:  # type: ignore[override]
-        return self._orig.name
-
-    @property
-    def _wrappers(self) -> List["HookImpl"]:  # type: ignore[override]
-        return self._orig._wrappers
-
-    @_wrappers.setter  # type: ignore[attr-defined,misc]
-    def _wrappers_set(self, value: List["HookImpl"]) -> None:
-        self._orig._wrappers = value
-
-    @property
-    def _nonwrappers(self) -> List["HookImpl"]:  # type: ignore[override]
-        return self._orig._nonwrappers
-
-    @_nonwrappers.setter  # type: ignore[attr-defined,misc]
-    def _nonwrappers_set(self, value: List["HookImpl"]) -> None:
-        self._orig._nonwrappers = value
-
-    @property
-    def _call_history(  # type: ignore[override]
-        self,
-    ) -> Optional[List[Tuple[Mapping[str, object], Optional[Callable[[Any], None]]]]]:
-        return self._orig._call_history
-
-    @_call_history.setter  # type: ignore[attr-defined,misc]
-    def _call_history_set(
-        self,
-        value: Optional[
-            List[Tuple[Mapping[str, object], Optional[Callable[[Any], None]]]]
-        ],
-    ) -> None:
-        self._orig._call_history = value
-
-    @property
-    def spec(self) -> Optional["HookSpec"]:  # type: ignore[override]
-        return self._orig.spec
-
-    def spec_set(self, value: Optional["HookSpec"]) -> None:
-        self._orig.spec = value
-
-    def get_hookimpls(self) -> List["HookImpl"]:
-        return [
-            impl
-            for impl in self._orig.get_hookimpls()
-            if impl.plugin not in self._remove_plugins
-        ]
-
-    def _hookexec(
-        self,
-        hook_name: str,
-        hook_impls: Sequence["HookImpl"],
-        caller_kwargs: Mapping[str, object],
-        firstresult: bool,
-    ) -> Union[object, List[object]]:
-        return self._orig._hookexec(hook_name, hook_impls, caller_kwargs, firstresult)
-
     def __repr__(self) -> str:
         return f"<_SubsetHookCaller {self.name!r}>"
+
+    def get_hookimpls(self) -> List["HookImpl"]:
+        orig = object.__getattribute__(self, "_orig")
+        remove_plugins = object.__getattribute__(self, "_remove_plugins")
+        hookimpls = orig.get_hookimpls()
+        return [impl for impl in hookimpls if impl.plugin not in remove_plugins]
+
+    def __getattribute__(self, name: str):
+        if name == "get_hookimpls":
+            return object.__getattribute__(self, "get_hookimpls")
+        orig = object.__getattribute__(self, "_orig")
+        return getattr(orig, name)
 
 
 class HookImpl:

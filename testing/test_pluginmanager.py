@@ -462,6 +462,11 @@ def test_subset_hook_caller(pm: PluginManager) -> None:
     assert out == [2]
     out[:] = []
 
+    hc = pm.subset_hook_caller("he_method1", lambda plugin: plugin is plugin2)
+    hc(arg=2)
+    assert out == [2]
+    out[:] = []
+
     pm.unregister(plugin1)
     hc(arg=2)
     assert out == []

@@ -7,7 +7,6 @@ import inspect
 import sys
 import warnings
 from types import ModuleType
-from typing import AbstractSet
 from typing import Any
 from typing import Callable
 from typing import Final
@@ -569,7 +568,7 @@ _HookCaller = HookCaller
 
 class _SubsetHookCaller(HookCaller):
     """A proxy to another HookCaller which manages calls to all registered
-    plugins except the ones from remove_plugins."""
+    plugins except the ones excluded by a predicate."""
 
     # This class is unusual: in inhertits from `HookCaller` so all of
     # the *code* runs in the class, but it delegates all underlying *data*
@@ -583,12 +582,16 @@ class _SubsetHookCaller(HookCaller):
 
     __slots__ = (
         "_orig",
-        "_remove_plugins",
+        "_remove_plugin_predicate",
     )
 
-    def __init__(self, orig: HookCaller, remove_plugins: AbstractSet[_Plugin]) -> None:
+    def __init__(
+        self,
+        orig: HookCaller,
+        remove_plugin_predicate: Callable[[_Plugin], bool],
+    ) -> None:
         self._orig = orig
-        self._remove_plugins = remove_plugins
+        self._remove_plugin_predicate = remove_plugin_predicate
         self.name = orig.name  # type: ignore[misc]
         self._hookexec = orig._hookexec  # type: ignore[misc]
 
@@ -597,7 +600,7 @@ class _SubsetHookCaller(HookCaller):
         return [
             impl
             for impl in self._orig._hookimpls
-            if impl.plugin not in self._remove_plugins
+            if not self._remove_plugin_predicate(impl.plugin)
         ]
 
     @property

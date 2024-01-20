@@ -252,7 +252,7 @@ class PluginManager:
                 else:
                     # Plugins registered this hook without knowing the spec.
                     hc.set_specification(module_or_class, spec_opts)
-                    for hookfunction in hc.get_hookimpls():
+                    for hookfunction in hc.get_hookimpls(reversed=False):
                         self._verify_hook(hc, hookfunction)
                 names.append(name)
 
@@ -369,7 +369,7 @@ class PluginManager:
             if name[0] != "_":
                 hook: HookCaller = getattr(self.hook, name)
                 if not hook.has_spec():
-                    for hookimpl in hook.get_hookimpls():
+                    for hookimpl in hook.get_hookimpls(reversed=False):
                         if not hookimpl.optionalhook:
                             raise PluginValidationError(
                                 hookimpl.plugin,

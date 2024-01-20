@@ -389,13 +389,13 @@ class HookCaller:
         #: Name of the hook getting called.
         self.name: Final = name
         self._hookexec: Final = hook_execute
-        # The hookimpls list. The caller iterates it *in reverse*. Format:
-        # 1. trylast nonwrappers
-        # 2. nonwrappers
-        # 3. tryfirst nonwrappers
-        # 4. trylast wrappers
-        # 5. wrappers
-        # 6. tryfirst wrappers
+        # The hookimpls list. Format:
+        # 1. tryfirst wrappers
+        # 2. wrappers
+        # 3. trylast wrappers
+        # 4. tryfirst nonwrappers
+        # 5. nonwrappers
+        # 6. trylast nonwrappers
         self._hookimpls: Final[list[HookImpl]] = []
         self._call_history: _CallHistory | None = None
         # TODO: Document, or make private.
@@ -434,33 +434,46 @@ class HookCaller:
                 return
         raise ValueError(f"plugin {plugin!r} not found")
 
-    def get_hookimpls(self) -> list[HookImpl]:
-        """Get all registered hook implementations for this hook."""
-        return self._hookimpls.copy()
+    def get_hookimpls(self, *, reversed: bool = True) -> list[HookImpl]:
+        """Get all registered hook implementations for this hook.
+
+        By default, the hook implementations are returned in the *reverse* of
+        their calling order. This matches the registration order when the calling
+        order is not modified by ``tryfirst``/``trylast``/wrapping.
+        Set ``reversed=False`` to get the calling order.
+        """
+        hookimpls = self._hookimpls.copy()
+        if reversed:
+            hookimpls.reverse()
+        return hookimpls
 
     def _add_hookimpl(self, hookimpl: HookImpl) -> None:
         """Add an implementation to the callback chain."""
         for i, method in enumerate(self._hookimpls):
-            if method.hookwrapper or method.wrapper:
+            if not (method.hookwrapper or method.wrapper):
                 splitpoint = i
                 break
         else:
             splitpoint = len(self._hookimpls)
         if hookimpl.hookwrapper or hookimpl.wrapper:
-            start, end = splitpoint, len(self._hookimpls)
-        else:
             start, end = 0, splitpoint
+        else:
+            start, end = splitpoint, len(self._hookimpls)
 
         if hookimpl.trylast:
-            self._hookimpls.insert(start, hookimpl)
-        elif hookimpl.tryfirst:
             self._hookimpls.insert(end, hookimpl)
+        elif hookimpl.tryfirst:
+            self._hookimpls.insert(start, hookimpl)
         else:
-            # find last non-tryfirst method
-            i = end - 1
-            while i >= start and self._hookimpls[i].tryfirst:
-                i -= 1
-            self._hookimpls.insert(i + 1, hookimpl)
+            # Find first non-tryfirst method.
+            for i in range(start, end):
+                if self._hookimpls[i].tryfirst:
+                    continue
+                insert_at = i
+                break
+            else:
+                insert_at = end
+            self._hookimpls.insert(insert_at, hookimpl)
 
     def __repr__(self) -> str:
         return f"<HookCaller {self.name!r}>"
@@ -544,18 +557,21 @@ class HookCaller:
             "specname": None,
         }
         hookimpls = self._hookimpls.copy()
+        # Find first non-tryfirst nonwrapper method.
+        for i, hookimpl in enumerate(hookimpls):
+            # Skip wrappers.
+            if hookimpl.hookwrapper or hookimpl.wrapper:
+                continue
+            # Skip tryfirsts.
+            if hookimpl.tryfirst:
+                continue
+            insert_at = i
+            break
+        else:
+            insert_at = len(hookimpls)
         for method in methods:
             hookimpl = HookImpl(None, "<temp>", method, opts)
-            # Find last non-tryfirst nonwrapper method.
-            i = len(hookimpls) - 1
-            while i >= 0 and (
-                # Skip wrappers.
-                (hookimpls[i].hookwrapper or hookimpls[i].wrapper)
-                # Skip tryfirst nonwrappers.
-                or hookimpls[i].tryfirst
-            ):
-                i -= 1
-            hookimpls.insert(i + 1, hookimpl)
+            hookimpls.insert(insert_at, hookimpl)
         firstresult = self.spec.opts.get("firstresult", False) if self.spec else False
         return self._hookexec(self.name, hookimpls, kwargs, firstresult)
 

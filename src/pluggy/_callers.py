@@ -42,7 +42,7 @@ def _multicall(
     try:  # run impl and wrapper setup functions in a loop
         teardowns: list[Teardown] = []
         try:
-            for hook_impl in reversed(hook_impls):
+            for hook_impl in hook_impls:
                 try:
                     args = [caller_kwargs[argname] for argname in hook_impl.argnames]
                 except KeyError:

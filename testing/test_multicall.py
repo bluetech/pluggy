@@ -42,7 +42,7 @@ def test_keyword_args() -> None:
             return x + y
 
     reslist = MC([f, A().f], dict(x=23, y=24))
-    assert reslist == [24 + 23, 24]
+    assert reslist == [24, 24 + 23]
 
 
 def test_keyword_args_with_defaultargs() -> None:
@@ -92,11 +92,11 @@ def test_hookwrapper() -> None:
         out.append("m2")
         return 2
 
-    res = MC([m2, m1], {})
+    res = MC([m1, m2], {})
     assert res == [2]
     assert out == ["m1 init", "m2", "m1 finish"]
     out[:] = []
-    res = MC([m2, m1], {}, firstresult=True)
+    res = MC([m1, m2], {}, firstresult=True)
     assert res == 2
     assert out == ["m1 init", "m2", "m1 finish"]
 
@@ -126,11 +126,11 @@ def test_wrapper() -> None:
         out.append("m2")
         return 2
 
-    res = MC([m2, m1], {})
+    res = MC([m1, m2], {})
     assert res == [2, 2]
     assert out == ["m1 init", "m2", "m1 finish"]
     out[:] = []
-    res = MC([m2, m1], {}, firstresult=True)
+    res = MC([m1, m2], {}, firstresult=True)
     assert res == 4
     assert out == ["m1 init", "m2", "m1 finish"]
 
@@ -173,7 +173,7 @@ def test_hookwrapper_order() -> None:
         yield 4
         out.append("m4 finish")
 
-    res = MC([m4, m3, m2, m1], {})
+    res = MC([m1, m2, m3, m4], {})
     assert res == []
     assert out == [
         "m1 init",
@@ -266,7 +266,7 @@ def test_hookwrapper_exception(exc: "Type[BaseException]") -> None:
         raise exc
 
     with pytest.raises(exc):
-        MC([m2, m1], {})
+        MC([m1, m2], {})
     assert out == ["m1 init", "m1 finish"]
 
 
@@ -306,7 +306,7 @@ def test_hookwrapper_force_exception() -> None:
         raise ValueError("m4")
 
     with pytest.raises(OSError, match="m2") as excinfo:
-        MC([m4, m3, m2, m1], {})
+        MC([m1, m2, m3, m4], {})
     assert out == [
         "m1 init",
         "m2 init",
@@ -341,7 +341,7 @@ def test_wrapper_exception(exc: "Type[BaseException]") -> None:
         raise exc
 
     with pytest.raises(exc):
-        MC([m2, m1], {})
+        MC([m1, m2], {})
     assert out == ["m1 init", "m2 init", "m1 finish"]
 
 
@@ -370,7 +370,7 @@ def test_wrapper_exception_chaining() -> None:
             raise Exception("m4") from e
 
     with pytest.raises(Exception) as excinfo:
-        MC([m1, m2, m3, m4], {})
+        MC([m4, m3, m2, m1], {})
     assert str(excinfo.value) == "m4"
     assert excinfo.value.__cause__ is not None
     assert str(excinfo.value.__cause__) == "m2"
@@ -402,7 +402,7 @@ def test_unwind_inner_wrapper_teardown_exc() -> None:
 
     with pytest.raises(ValueError):
         try:
-            MC([m2, m1], {})
+            MC([m1, m2], {})
         finally:
             out.append("finally")
 
@@ -443,7 +443,7 @@ def test_suppress_inner_wrapper_teardown_exc() -> None:
         out.append("m3 raise")
         raise ValueError()
 
-    assert MC([m3, m2, m1], {}) == 22
+    assert MC([m1, m2, m3], {}) == 22
     assert out == [
         "m1 init",
         "m2 init",
